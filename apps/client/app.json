@@ -22,14 +22,15 @@
       "predictiveBackGestureEnabled": false,
       "config": {
         "googleMaps": {
-          "apiKey": "AIzaSyC98NI4JWXSIcI-hWX_Rj4g49XjPfToZzw"
+          "apiKey": "AIzaSyDF2uKk2ELnpEDd_N0cdxGn6gw1ZtptoNA"
         }
       },
       "ios": {
         "config": {
           "googleMapsApiKey": "AIzaSyC98NI4JWXSIcI-hWX_Rj4g49XjPfToZzw"
         }
-      }
+      },
+      "package": "com.anonymous.client"
     },
     "web": {
       "output": "static",

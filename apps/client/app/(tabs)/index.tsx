@@ -3,75 +3,217 @@ import {
   View,
   Text,
   TouchableOpacity,
+  ScrollView,
+  TextInput,
+  FlatList,
+  Keyboard,
+  Alert,
   Dimensions,
   StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import MapView, { Marker, Polyline } from "react-native-maps";
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+import * as Location from "expo-location"; // 🟢 REAL GPS
 import { RideTypeToggle } from "../../components/RideTypeToggle";
-import { Input } from "../../components/Input";
-import { ScrollView } from "react-native";
+import { Input } from "@/components/Input";
+import {
+  searchPlaces,
+  fetchDirections,
+  fetchPlaceDetails,
+  reverseGeocode,
+} from "../../services/google";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+  FadeInDown,
+  FadeOutUp,
+  SlideInDown,
+} from "react-native-reanimated";
 
 const { width, height } = Dimensions.get("window");
 
-// DUMMY CARS (For the Pitch)
+// Mock Cars (Still mock, as we don't have real drivers yet)
 const CARS = [
-  { id: 1, lat: 25.2048, lng: 55.2708, rotation: 45 }, // Near Dubai
-  { id: 2, lat: 25.19, lng: 55.26, rotation: 90 },
-  { id: 3, lat: 25.21, lng: 55.28, rotation: 120 },
+  { id: 1, lat: 25.2048, lng: 55.2708, rotation: 45 },
+  { id: 2, lat: 25.195, lng: 55.265, rotation: 90 },
 ];
-
-const SAVER_CARS = [
-  { id: 4, lat: 24.4539, lng: 54.3773, rotation: 180 }, // Near Abu Dhabi
-];
-
-// This saves you $5 per 1000 requests by not using the Directions API.
-const DEMO_ROUTE = [
-  { latitude: 25.2048, longitude: 55.2708 }, // Start: Dubai
-  { latitude: 25.04, longitude: 55.1 }, // Jebel Ali
-  { latitude: 24.86, longitude: 54.85 }, // Ghantoot
-  { latitude: 24.65, longitude: 54.6 }, // Al Rahba
-  { latitude: 24.4539, longitude: 54.3773 }, // End: Abu Dhabi
-];
+const SAVER_CARS = [{ id: 4, lat: 24.4539, lng: 54.3773, rotation: 180 }];
 
 export default function Home() {
   const router = useRouter();
-  const [rideMode, setRideMode] = useState<"instant" | "saver">("instant");
-  const [isSelectingLocation, setIsSelectingLocation] = useState(false);
-  const [locations, setLocations] = useState({
-    from: "Dubai (DXB)",
-    fromDesc: "Downtown Dubai",
-    to: "Abu Dhabi (AUH)",
-    toDesc: "Yas Island",
-  });
-
   const mapRef = useRef<MapView>(null);
 
-  // 3. CAMERA ANIMATION LOGIC
-  // Remove auto-panning on ride mode change as requested
-  // We strictly use this for initial setup or manual resets if needed
+  const [rideMode, setRideMode] = useState<"instant" | "saver">("instant");
+  const [userLocation, setUserLocation] = useState<any>(null);
+  const [destination, setDestination] = useState<any>(null);
+  const [routeCoords, setRouteCoords] = useState<any[]>([]); // The Blue Line
+  const [isSelecting, setIsSelecting] = useState(false); // Search UI Mode
 
-  const handleSwap = () => {
-    setLocations((prev) => ({
-      from: prev.to,
-      fromDesc: prev.toDesc,
-      to: prev.from,
-      toDesc: prev.fromDesc,
-    }));
+  // Trip Info
+  const [tripDetails, setTripDetails] = useState<{
+    distance: string;
+    duration: string;
+  } | null>(null);
+
+  // Search State
+  const [searchText, setSearchText] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+
+  // --- ANIMATIONS ---
+  const uiTranslateY = useSharedValue(0);
+  useEffect(() => {
+    if (isSelecting) {
+      uiTranslateY.value = withTiming(height, { duration: 500 }); // Slide down
+    } else {
+      uiTranslateY.value = withTiming(0, { duration: 500 }); // Slide up
+    }
+  }, [isSelecting]);
+  const mainUiStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateY: uiTranslateY.value }],
+      opacity: isSelecting ? withTiming(0) : withTiming(1),
+    };
+  });
+
+  // 1. 🟢 GET REAL USER LOCATION
+  useEffect(() => {
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission to access location was denied");
+        return;
+      }
+
+      let location = await Location.getCurrentPositionAsync({});
+      setUserLocation({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      });
+    })();
+  }, []);
+
+  // 2. 🟢 REAL GOOGLE PLACES SEARCH
+  const handleSearch = async (text: string) => {
+    setSearchText(text);
+    if (text.length < 3) {
+      setSearchResults([]);
+      return;
+    }
+    const results = await searchPlaces(text);
+    setSearchResults(results);
   };
 
-  const handleConfirmLocation = () => {
-    setIsSelectingLocation(false);
-    // Logic to actually set location based on crosshair would go here
+  // 3. 🟢 GET DETAILS & ROUTE WHEN PLACE SELECTED
+  const handleSelectPlace = async (
+    placeId: string,
+    mainText: string,
+    secondaryText: string
+  ) => {
+    Keyboard.dismiss();
+    setSearchResults([]); // Hide the list
+    setSearchText(mainText); // Show selected name in input
+    // setIsSelecting(false); // <--- KEEP SEARCH MODE ACTIVE so user can see map
+
+    try {
+      // A. Get Coordinates of the Place
+      const location = await fetchPlaceDetails(placeId);
+      if (!location) return;
+
+      const destCoord = {
+        latitude: location.latitude,
+        longitude: location.longitude,
+        name: mainText,
+        desc: secondaryText,
+      };
+      setDestination(destCoord);
+
+      // B. FLy to the Exact Location (Zoom In)
+      mapRef.current?.animateCamera(
+        {
+          center: {
+            latitude: location.latitude,
+            longitude: location.longitude,
+          },
+          zoom: 17, // Closer zoom for "exact location"
+          pitch: 0,
+          heading: 0,
+        },
+        { duration: 1000 }
+      );
+
+      // C. Get Directions (Update Route)
+      if (userLocation) {
+        const directionData = await fetchDirections(userLocation, destCoord);
+        if (directionData) {
+          setRouteCoords(directionData.points);
+          setTripDetails({
+            distance: directionData.distance,
+            duration: directionData.duration,
+          });
+        }
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  // 4. 🟢 HANDLE MAP TAP (Reverse Geocode)
+  const handleMapPress = async (e: any) => {
+    const { latitude, longitude } = e.nativeEvent.coordinate;
+
+    // Animate to new pinned location
+    mapRef.current?.animateCamera(
+      {
+        center: { latitude, longitude },
+        zoom: 17,
+      },
+      { duration: 500 }
+    );
+
+    // Update Destination State immediately with coords
+    const tempDest = {
+      latitude,
+      longitude,
+      name: "Pinned Location",
+      desc: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+    };
+    setDestination(tempDest);
+
+    // Fetch Address & Directions
+    try {
+      // A. Reverse Geocode for Name
+      const address = await reverseGeocode(latitude, longitude);
+      const finalDest = { ...tempDest, ...address };
+      setDestination(finalDest);
+      setSearchText(address.name);
+
+      // B. Update Route
+      if (userLocation) {
+        const directionData = await fetchDirections(userLocation, finalDest);
+        if (directionData) {
+          setRouteCoords(directionData.points);
+          setTripDetails({
+            distance: directionData.distance,
+            duration: directionData.duration,
+          });
+        }
+      }
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   return (
     <View className="flex-1 bg-white">
-      {/* --- LAYER 1: THE MAP (Background) --- */}
+      {/* --- MAP LAYER --- */}
       <MapView
         ref={mapRef}
+        provider={PROVIDER_GOOGLE}
         style={StyleSheet.absoluteFill}
         initialRegion={{
           latitude: 25.2048,
@@ -79,15 +221,10 @@ export default function Home() {
           latitudeDelta: 0.1,
           longitudeDelta: 0.1,
         }}
-        customMapStyle={[
-          {
-            featureType: "poi",
-            elementType: "labels.icon",
-            stylers: [{ visibility: "off" }],
-          },
-        ]}
+        showsUserLocation={true}
+        onPress={handleMapPress}
       >
-        {/* Render Cars */}
+        {/* Cars */}
         {(rideMode === "instant" ? CARS : SAVER_CARS).map((car) => (
           <Marker
             key={car.id}
@@ -104,55 +241,41 @@ export default function Home() {
           </Marker>
         ))}
 
-        {/* Render the Route Line only when NOT selecting (cleaner look) */}
-        {!isSelectingLocation && (
+        {/* Destination Marker */}
+        {destination && (
+          <Marker coordinate={destination}>
+            <View className="bg-black p-2 rounded-lg">
+              <Ionicons name="flag" color="white" size={16} />
+            </View>
+          </Marker>
+        )}
+
+        {/* Real Route Line */}
+        {routeCoords.length > 0 && (
           <Polyline
-            coordinates={DEMO_ROUTE}
-            strokeColor={rideMode === "saver" ? "#16A34A" : "#000000"} // Green for Saver, Black for Normal
+            coordinates={routeCoords}
             strokeWidth={4}
-            lineDashPattern={rideMode === "saver" ? [10, 10] : undefined} // Dashed line for return trips
+            strokeColor={rideMode === "saver" ? "#16A34A" : "black"}
+            lineDashPattern={rideMode === "saver" ? [10, 10] : undefined}
           />
         )}
       </MapView>
 
       {/* Map Overlay for Transparency Effect (Only in Normal Mode) */}
-      {!isSelectingLocation && (
+      {!isSelecting && (
         <View
           className="absolute top-0 left-0 right-0 bottom-0 bg-white/70 pointer-events-none"
           pointerEvents="none"
         />
       )}
 
-      {/* --- LAYER 2: UI --- */}
+      {/* LAYER 2: UI CONTAINER */}
       <SafeAreaView className="flex-1" pointerEvents="box-none">
-        {/* SELECTION MODE UI */}
-        {isSelectingLocation ? (
-          <View className="flex-1 justify-between pb-10 px-5">
-            <View className="mt-2 bg-white p-4 rounded-2xl shadow-sm flex-row items-center border border-gray-100">
-              <TouchableOpacity onPress={() => setIsSelectingLocation(false)}>
-                <Ionicons name="arrow-back" size={24} color="black" />
-              </TouchableOpacity>
-              <Text className="ml-4 font-bold text-lg font-sans">
-                Select Location
-              </Text>
-            </View>
-
-            {/* Center Crosshair (Visual only for now) */}
-            <View className="absolute top-[50%] left-[50%] -ml-4 -mt-10 items-center justify-center pointer-events-none">
-              <Ionicons name="location-sharp" size={40} color="#171ACB" />
-            </View>
-
-            <TouchableOpacity
-              onPress={handleConfirmLocation}
-              className="bg-black py-4 rounded-2xl items-center shadow-lg"
-            >
-              <Text className="text-white text-lg font-bold font-sans">
-                Confirm Location
-              </Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          /* NORMAL MODE UI */
+        {/* --- MAIN DASHBOARD (Normally Visible) --- */}
+        <Animated.View
+          style={[mainUiStyle, { flex: 1 }]}
+          pointerEvents={isSelecting ? "none" : "auto"}
+        >
           <ScrollView
             className="px-5"
             showsVerticalScrollIndicator={false}
@@ -182,13 +305,12 @@ export default function Home() {
               </TouchableOpacity>
             </View>
 
-            {/* SEARCH INPUT - Triggers Selection Mode */}
+            {/* SEARCH INPUT TRIGGER */}
             <TouchableOpacity
               className="mt-6"
-              onPress={() => setIsSelectingLocation(true)}
+              onPress={() => setIsSelecting(true)}
               activeOpacity={0.9}
             >
-              {/* Using pointerEvents="none" to make the Input purely visual within the touchable */}
               <View pointerEvents="none">
                 <Input
                   icon="search"
@@ -201,7 +323,7 @@ export default function Home() {
             {/* TRANSPORT TABS */}
             <View className="flex-row justify-between mt-6">
               {["Car", "Taxi", "Bus", "Bike"].map((item, index) => {
-                const isActive = index === 0; // Highlight 'Car'
+                const isActive = index === 0;
                 return (
                   <TouchableOpacity
                     key={item}
@@ -246,42 +368,56 @@ export default function Home() {
                   : "bg-white"
               }`}
             >
-              {/* FROM */}
               <View className="border-b border-gray-100 pb-4">
                 <Text className="text-gray-400 text-xs font-sans mb-1">
                   From
                 </Text>
-                <Text className="text-xl font-bold text-black">
-                  {locations.from}
+                <Text
+                  className="text-xl font-bold text-black"
+                  numberOfLines={1}
+                >
+                  {userLocation ? "Current Location" : "Dubai (DXB)"}
                 </Text>
-                <Text className="text-gray-500 text-sm font-sans">
-                  {locations.fromDesc}
+                <Text
+                  className="text-gray-500 text-sm font-sans"
+                  numberOfLines={1}
+                >
+                  {userLocation ? "Your Location" : "Waiting for GPS..."}
                 </Text>
               </View>
 
-              {/* SWAP ICON */}
-              <TouchableOpacity
-                onPress={handleSwap}
-                className="absolute right-8 top-[42%] bg-white p-2 rounded-full shadow-md z-10 border border-gray-50"
-              >
+              <TouchableOpacity className="absolute right-8 top-[42%] bg-white p-2 rounded-full shadow-md z-10 border border-gray-50">
                 <Ionicons name="swap-vertical" size={20} color="#171ACB" />
               </TouchableOpacity>
 
-              {/* TO */}
               <View className="pt-4">
                 <Text className="text-gray-400 text-xs font-sans mb-1">To</Text>
-                <Text className="text-xl font-bold text-black">
-                  {locations.to}
+                <Text
+                  className="text-xl font-bold text-black"
+                  numberOfLines={1}
+                >
+                  {destination ? destination.name : "Abu Dhabi (AUH)"}
                 </Text>
-                <Text className="text-gray-500 text-sm font-sans">
-                  {locations.toDesc}
+                <Text
+                  className="text-gray-500 text-sm font-sans"
+                  numberOfLines={1}
+                >
+                  {destination ? destination.desc : "Yas Island"}
                 </Text>
               </View>
             </View>
 
-            {/* PRICE PREVIEW (The Pitch Hook) */}
+            {/* PRICE PREVIEW */}
             <View className="mt-6 bg-white p-4 rounded-2xl flex-row justify-between items-center border border-gray-100">
-              <Text className="text-gray-500 font-sans">Estimated Fare</Text>
+              <View>
+                <Text className="text-gray-500 font-sans">Estimated Fare</Text>
+                {tripDetails && (
+                  <Text className="text-xs text-gray-400 mt-1">
+                    {tripDetails.distance} • {tripDetails.duration}
+                  </Text>
+                )}
+              </View>
+
               <View className="items-end">
                 {rideMode === "saver" && (
                   <Text className="text-gray-400 line-through text-sm">
@@ -336,9 +472,95 @@ export default function Home() {
               </Text>
             </TouchableOpacity>
 
-            {/* PADDING FOR BOTTOM TAB BAR */}
             <View className="h-24" />
           </ScrollView>
+        </Animated.View>
+
+        {/* --- SELECTION / SEARCH MODE UI (Animated Entry) --- */}
+        {isSelecting && (
+          <Animated.View
+            entering={FadeInDown.springify()}
+            exiting={FadeOutUp}
+            className="absolute top-0 left-0 right-0 bottom-0 pointer-events-box-none"
+            pointerEvents="box-none"
+          >
+            {/* REAL SEARCH INPUT CONTAINER */}
+            <View className="bg-white/95 px-5 pt-4 pb-2 shadow-sm rounded-b-2xl">
+              <View className="flex-row items-center bg-gray-100 p-3 rounded-xl mb-2 border border-gray-200">
+                <TouchableOpacity onPress={() => setIsSelecting(false)}>
+                  <Ionicons name="arrow-back" size={24} color="black" />
+                </TouchableOpacity>
+                <TextInput
+                  autoFocus
+                  placeholder="Where to?"
+                  className="flex-1 ml-3 text-lg font-sans"
+                  value={searchText}
+                  onChangeText={handleSearch}
+                />
+                {searchText.length > 0 && (
+                  <TouchableOpacity onPress={() => handleSearch("")}>
+                    <Ionicons name="close-circle" size={20} color="gray" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* LIST RESULTS (Only show if there are results) */}
+              {searchResults.length > 0 && (
+                <View className="max-h-80 bg-white rounded-xl shadow-lg mt-2 overflow-hidden">
+                  <FlatList
+                    data={searchResults}
+                    keyExtractor={(item) => item.place_id}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        className="py-4 px-4 border-b border-gray-100 flex-row items-center"
+                        onPress={() =>
+                          handleSelectPlace(
+                            item.place_id,
+                            item.structured_formatting.main_text,
+                            item.structured_formatting.secondary_text
+                          )
+                        }
+                      >
+                        <View className="bg-gray-100 p-3 rounded-full mr-3">
+                          <Ionicons name="location" size={20} color="black" />
+                        </View>
+                        <View className="flex-1">
+                          <Text className="font-bold text-black text-base">
+                            {item.structured_formatting.main_text}
+                          </Text>
+                          <Text
+                            className="text-gray-500 text-sm mt-1"
+                            numberOfLines={1}
+                          >
+                            {item.structured_formatting.secondary_text}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    )}
+                  />
+                </View>
+              )}
+            </View>
+
+            {/* BOTTOM CONFIRM BUTTON (Slide Up Animation) */}
+            {destination && (
+              <Animated.View
+                entering={SlideInDown.springify().damping(150)}
+                className="absolute bottom-10 left-5 right-5"
+              >
+                <TouchableOpacity
+                  onPress={() => setIsSelecting(false)} // Confirm selection
+                  className="bg-primary py-4 rounded-2xl items-center shadow-lg"
+                >
+                  <Text className="text-white font-bold text-lg">
+                    Confirm Location
+                  </Text>
+                </TouchableOpacity>
+              </Animated.View>
+            )}
+          </Animated.View>
         )}
       </SafeAreaView>
     </View>
