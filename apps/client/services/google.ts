@@ -64,6 +64,7 @@ export const fetchDirections = async (start: Location, end: Location) => {
 };
 
 // 4. REVERSE GEOCODE (Coordinate -> Address)
+// 4. REVERSE GEOCODE (Coordinate -> Address)
 export const reverseGeocode = async (latitude: number, longitude: number) => {
   try {
     const url = `${BASE_URL}/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_API_KEY}`;
@@ -72,18 +73,37 @@ export const reverseGeocode = async (latitude: number, longitude: number) => {
 
     if (data.results.length > 0) {
       const result = data.results[0];
+      const components = result.address_components;
+
+      // Extract City (Locality or Administrative Area)
+      let city = "Unknown City";
+      const locality = components.find((c: any) =>
+        c.types.includes("locality")
+      );
+      const adminArea = components.find((c: any) =>
+        c.types.includes("administrative_area_level_1")
+      );
+
+      if (locality) {
+        city = locality.short_name;
+      } else if (adminArea) {
+        city = adminArea.short_name;
+      }
+
       return {
         name: result.address_components[0].short_name, // e.g. "Dubai Mall" or "Street 1"
         desc: result.formatted_address, // Full address
+        city: city,
       };
     }
     return {
       name: "Pinned Location",
       desc: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+      city: "Unknown City",
     };
   } catch (error) {
     console.error("Reverse Geocode Error:", error);
-    return { name: "Pinned Location", desc: "Unknown Address" };
+    return { name: "Pinned Location", desc: "Unknown Address", city: "Error" };
   }
 };
 

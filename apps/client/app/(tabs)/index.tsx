@@ -24,6 +24,7 @@ import {
   fetchPlaceDetails,
   reverseGeocode,
 } from "../../services/google";
+import { saveLocation, getLastLocation } from "../../services/storage";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -48,6 +49,7 @@ export default function Home() {
 
   const [rideMode, setRideMode] = useState<"instant" | "saver">("instant");
   const [userLocation, setUserLocation] = useState<any>(null);
+  const [currentCity, setCurrentCity] = useState("Current Location");
   const [destination, setDestination] = useState<any>(null);
   const [routeCoords, setRouteCoords] = useState<any[]>([]); // The Blue Line
   const [isSelecting, setIsSelecting] = useState(false); // Search UI Mode
@@ -81,19 +83,38 @@ export default function Home() {
   // 1. 🟢 GET REAL USER LOCATION
   useEffect(() => {
     (async () => {
+      // A. Load Cache First (Instant UI)
+      const cached = await getLastLocation();
+      if (cached) {
+        setUserLocation(cached);
+        if (cached.city) setCurrentCity(cached.city);
+      }
+
+      // B. Request Fresh Permission
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         Alert.alert("Permission to access location was denied");
         return;
       }
 
+      // C. Get Fresh Location
       let location = await Location.getCurrentPositionAsync({});
-      setUserLocation({
+      const newLoc = {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
         latitudeDelta: 0.05,
         longitudeDelta: 0.05,
-      });
+      };
+      setUserLocation(newLoc);
+
+      // D. Reverse Geocode (Get City Name)
+      const address = await reverseGeocode(newLoc.latitude, newLoc.longitude);
+
+      const city = address.city || "Unknown City";
+      setCurrentCity(city);
+
+      // E. Save to Cache
+      await saveLocation({ ...newLoc, city });
     })();
   }, []);
 
@@ -321,7 +342,7 @@ export default function Home() {
             </TouchableOpacity>
 
             {/* TRANSPORT TABS */}
-            <View className="flex-row justify-between mt-6">
+            <View className="flex-row justify-between my-6">
               {["Car", "Taxi", "Bus", "Bike"].map((item, index) => {
                 const isActive = index === 0;
                 return (
@@ -376,7 +397,7 @@ export default function Home() {
                   className="text-xl font-bold text-black"
                   numberOfLines={1}
                 >
-                  {userLocation ? "Current Location" : "Dubai (DXB)"}
+                  {currentCity}
                 </Text>
                 <Text
                   className="text-gray-500 text-sm font-sans"
@@ -390,21 +411,26 @@ export default function Home() {
                 <Ionicons name="swap-vertical" size={20} color="#171ACB" />
               </TouchableOpacity>
 
-              <View className="pt-4">
+              <TouchableOpacity
+                onPress={() => setIsSelecting(true)}
+                className="pt-4"
+              >
                 <Text className="text-gray-400 text-xs font-sans mb-1">To</Text>
                 <Text
-                  className="text-xl font-bold text-black"
+                  className={`text-xl font-bold ${
+                    destination ? "text-black" : "text-gray-400"
+                  }`}
                   numberOfLines={1}
                 >
-                  {destination ? destination.name : "Abu Dhabi (AUH)"}
+                  {destination ? destination.name : "Select destination"}
                 </Text>
                 <Text
                   className="text-gray-500 text-sm font-sans"
                   numberOfLines={1}
                 >
-                  {destination ? destination.desc : "Yas Island"}
+                  {destination ? destination.desc : "Tap to search"}
                 </Text>
-              </View>
+              </TouchableOpacity>
             </View>
 
             {/* PRICE PREVIEW */}
@@ -435,7 +461,7 @@ export default function Home() {
             </View>
 
             {/* DATE & PASSENGERS */}
-            <View className="flex-row mt-4 justify-between">
+            {/* <View className="flex-row mt-4 justify-between">
               <TouchableOpacity className="w-[48%] bg-white p-4 rounded-2xl border border-gray-100">
                 <Text className="text-gray-400 text-xs font-sans">
                   Departing on
@@ -455,7 +481,7 @@ export default function Home() {
                   <Text className="ml-2 font-bold font-sans">1 Passenger</Text>
                 </View>
               </TouchableOpacity>
-            </View>
+            </View> */}
 
             {/* SEARCH BUTTON */}
             <TouchableOpacity
