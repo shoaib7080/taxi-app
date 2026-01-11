@@ -308,382 +308,384 @@ export default function Home() {
   };
 
   return (
-    <GestureHandlerRootView className="flex-1 bg-white">
-      {/* 🔹 MAP WITH GESTURE RECOGNIZER TO CLOSE KEYBOARD/SELECTION IF NEEDED? NO */}
-      <MapView
-        ref={mapRef}
-        provider={PROVIDER_GOOGLE}
-        style={StyleSheet.absoluteFill}
-        initialRegion={{
-          latitude: 25.2048,
-          longitude: 55.2708,
-          latitudeDelta: 0.1,
-          longitudeDelta: 0.1,
-        }}
-        showsUserLocation={true}
-        onPress={handleMapPress}
-      >
-        {(rideMode === "instant" ? CARS : SAVER_CARS).map((car) => (
-          <Marker
-            key={car.id}
-            coordinate={{ latitude: car.lat, longitude: car.lng }}
-            rotation={car.rotation}
-          >
-            <View className="bg-white p-2 rounded-full shadow-md border border-gray-100">
-              <Ionicons
-                name="car-sport"
-                size={20}
-                color={rideMode === "saver" ? "#16A34A" : "black"}
-              />
-            </View>
-          </Marker>
-        ))}
-        {destination && (
-          <Marker coordinate={destination}>
-            <View className="bg-black p-2 rounded-lg">
-              <Ionicons name="flag" color="white" size={16} />
-            </View>
-          </Marker>
-        )}
-        {routeCoords.length > 0 && (
-          <Polyline
-            coordinates={routeCoords}
-            strokeWidth={4}
-            strokeColor={rideMode === "saver" ? "#16A34A" : "black"}
-            lineDashPattern={rideMode === "saver" ? [10, 10] : undefined}
+    <SafeAreaView className="flex-1 bg-white">
+      <GestureHandlerRootView className="flex-1">
+        {/* 🔹 MAP WITH GESTURE RECOGNIZER TO CLOSE KEYBOARD/SELECTION IF NEEDED? NO */}
+        <MapView
+          ref={mapRef}
+          provider={PROVIDER_GOOGLE}
+          style={StyleSheet.absoluteFill}
+          initialRegion={{
+            latitude: 25.2048,
+            longitude: 55.2708,
+            latitudeDelta: 0.1,
+            longitudeDelta: 0.1,
+          }}
+          showsUserLocation={true}
+          onPress={handleMapPress}
+        >
+          {(rideMode === "instant" ? CARS : SAVER_CARS).map((car) => (
+            <Marker
+              key={car.id}
+              coordinate={{ latitude: car.lat, longitude: car.lng }}
+              rotation={car.rotation}
+            >
+              <View className="bg-white p-2 rounded-full shadow-md border border-gray-100">
+                <Ionicons
+                  name="car-sport"
+                  size={20}
+                  color={rideMode === "saver" ? "#16A34A" : "black"}
+                />
+              </View>
+            </Marker>
+          ))}
+          {destination && (
+            <Marker coordinate={destination}>
+              <View className="bg-black p-2 rounded-lg">
+                <Ionicons name="flag" color="white" size={16} />
+              </View>
+            </Marker>
+          )}
+          {routeCoords.length > 0 && (
+            <Polyline
+              coordinates={routeCoords}
+              strokeWidth={4}
+              strokeColor={rideMode === "saver" ? "#16A34A" : "black"}
+              lineDashPattern={rideMode === "saver" ? [10, 10] : undefined}
+            />
+          )}
+        </MapView>
+
+        {!isSelecting && !destination && (
+          <View
+            className="absolute top-0 left-0 right-0 bottom-0 bg-white/70 pointer-events-none"
+            pointerEvents="none"
           />
         )}
-      </MapView>
 
-      {!isSelecting && !destination && (
-        <View
-          className="absolute top-0 left-0 right-0 bottom-0 bg-white/70 pointer-events-none"
-          pointerEvents="none"
-        />
-      )}
-
-      {/* 🔹 DRAGGABLE UI SHEET */}
-      <GestureDetector gesture={pan}>
-        <Animated.View
-          style={[
-            mainUiStyle,
-            {
-              flex: 1,
-              backgroundColor: destination ? "white" : "transparent",
-              borderTopLeftRadius: 30,
-              borderTopRightRadius: 30,
-              overflow: "hidden",
-            },
-          ]}
-          pointerEvents="box-none" // Allow touch through to map if transparent, but here we manage it manually
-        >
-          {/* We need a View wrapper to capture gestures properly on the whole sheet surface */}
-          <View className="flex-1" pointerEvents="box-none">
-            <ScrollView
-              className="px-5 pt-2"
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 100 }}
-              scrollEnabled={isSelecting || !!destination} // Disable main scroll if in "Full Screen overlay mode"? No, usually always scrollable.
-            >
-              {destination && (
-                <View className="items-center mb-2 pt-2">
-                  <View className="w-12 h-1 bg-gray-300 rounded-full" />
-                </View>
-              )}
-
-              {!destination && (
-                <>
-                  <View className="flex-row justify-between items-center mt-2">
-                    <View className="flex-row items-center space-x-3">
-                      <View className="w-12 h-12 bg-gray-200 rounded-full items-center justify-center overflow-hidden">
-                        <Ionicons name="person" size={24} color="gray" />
-                      </View>
-                      <View>
-                        <Text className="text-secondary text-sm font-sans">
-                          Hello User,
-                        </Text>
-                        <Text className="text-primary text-2xl font-bold">
-                          Where to go?
-                        </Text>
-                      </View>
-                    </View>
-                    <TouchableOpacity className="bg-white p-2 rounded-full shadow-sm">
-                      <Ionicons
-                        name="notifications-outline"
-                        size={24}
-                        color="black"
-                      />
-                    </TouchableOpacity>
-                  </View>
-                  <TouchableOpacity
-                    className="mt-6"
-                    onPress={() => setIsSelecting(true)}
-                    activeOpacity={0.9}
-                  >
-                    <View pointerEvents="none">
-                      <Input
-                        icon="search"
-                        placeholder="Enter destination"
-                        editable={false}
-                      />
-                    </View>
-                  </TouchableOpacity>
-                </>
-              )}
-
-              <View className={destination ? "mt-2" : "mt-6"}>
-                <RideTypeToggle mode={rideMode} setMode={setRideMode} />
-              </View>
-
-              <View
-                className={`rounded-3xl p-5 shadow-sm border border-gray-100 transition-all ${
-                  rideMode === "saver"
-                    ? "bg-green-50 border-green-200"
-                    : "bg-white"
-                }`}
+        {/* 🔹 DRAGGABLE UI SHEET */}
+        <GestureDetector gesture={pan}>
+          <Animated.View
+            style={[
+              mainUiStyle,
+              {
+                flex: 1,
+                backgroundColor: destination ? "white" : "transparent",
+                borderTopLeftRadius: 30,
+                borderTopRightRadius: 30,
+                overflow: "hidden",
+              },
+            ]}
+            pointerEvents="box-none" // Allow touch through to map if transparent, but here we manage it manually
+          >
+            {/* We need a View wrapper to capture gestures properly on the whole sheet surface */}
+            <View className="flex-1" pointerEvents="box-none">
+              <ScrollView
+                className="px-5 pt-2"
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 100 }}
+                scrollEnabled={isSelecting || !!destination} // Disable main scroll if in "Full Screen overlay mode"? No, usually always scrollable.
               >
-                <View className="border-b border-gray-100 pb-4">
-                  <Text className="text-gray-400 text-xs font-sans mb-1">
-                    From
-                  </Text>
-                  <Text
-                    className="text-xl font-bold text-black"
-                    numberOfLines={1}
-                  >
-                    {currentCity}
-                  </Text>
-                  <Text
-                    className="text-gray-500 text-sm font-sans"
-                    numberOfLines={1}
-                  >
-                    {userLocation ? "Your Location" : "Waiting for GPS..."}
-                  </Text>
-                </View>
-
-                {/* DISTANCE BADGE */}
-                {tripDetails && destination && (
-                  <View className="absolute left-[45%] top-[52%] bg-white px-2 py-1 rounded-full border border-gray-200 z-20 shadow-sm">
-                    <Text className="text-xs font-bold text-gray-500">
-                      {tripDetails.distance}
-                    </Text>
+                {destination && (
+                  <View className="items-center mb-2 pt-2">
+                    <View className="w-12 h-1 bg-gray-300 rounded-full" />
                   </View>
                 )}
 
-                <TouchableOpacity className="absolute right-8 top-[42%] bg-white p-2 rounded-full shadow-md z-10 border border-gray-50">
-                  <Ionicons name="swap-vertical" size={20} color="#171ACB" />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => setIsSelecting(true)}
-                  className="pt-4"
-                >
-                  <Text className="text-gray-400 text-xs font-sans mb-1">
-                    To
-                  </Text>
-                  <Text
-                    className={`text-xl font-bold ${
-                      destination ? "text-black" : "text-gray-400"
-                    }`}
-                    numberOfLines={1}
-                  >
-                    {destination ? destination.name : "Select destination"}
-                  </Text>
-                  <Text
-                    className="text-gray-500 text-sm font-sans"
-                    numberOfLines={1}
-                  >
-                    {destination ? destination.desc : "Tap to search"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* HORIZONTAL VEHICLE LIST */}
-              {destination && (
-                <View className="mt-6">
-                  <Text className="text-gray-500 font-bold mb-3 font-sans">
-                    Select Vehicle
-                  </Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    className="flex-row"
-                    contentContainerStyle={{ paddingRight: 20 }}
-                  >
-                    {VEHICLES.map((vehicle) => {
-                      const fare = calculateFare(
-                        tripDetails?.distance,
-                        vehicle.multiplier
-                      );
-                      const isSelected = selectedVehicle === vehicle.id;
-
-                      return (
-                        <TouchableOpacity
-                          key={vehicle.id}
-                          onPress={() => setSelectedVehicle(vehicle.id)}
-                          className="mr-4 w-32 p-4 rounded-3xl border flex-col items-center justify-center border-gray-100 bg-white"
-                          style={[
-                            isSelected
-                              ? {
-                                  backgroundColor: "black",
-                                  borderColor: "black",
-                                }
-                              : {},
-                          ]}
-                        >
-                          <View
-                            className={`p-3 rounded-full mb-2 ${
-                              isSelected ? "bg-gray-800" : "bg-gray-100"
-                            }`}
-                          >
-                            <Ionicons
-                              name={vehicle.image as any}
-                              size={28}
-                              color={isSelected ? "white" : "black"}
-                            />
-                          </View>
-                          <Text
-                            className={`text-base font-bold mb-1 ${
-                              isSelected ? "text-white" : "text-black"
-                            }`}
-                          >
-                            {vehicle.name}
+                {!destination && (
+                  <>
+                    <View className="flex-row justify-between items-center mt-2">
+                      <View className="flex-row items-center space-x-3">
+                        <View className="w-12 h-12 bg-gray-200 rounded-full items-center justify-center overflow-hidden">
+                          <Ionicons name="person" size={24} color="gray" />
+                        </View>
+                        <View>
+                          <Text className="text-secondary text-sm font-sans">
+                            Hello User,
                           </Text>
-                          <Text
-                            className={`text-sm font-bold ${
-                              isSelected ? "text-green-400" : "text-black"
-                            }`}
-                          >
-                            {fare} AED
+                          <Text className="text-primary text-2xl font-bold">
+                            Where to go?
                           </Text>
-                          <Text
-                            className={`text-xs mt-1 ${
-                              isSelected ? "text-gray-400" : "text-gray-400"
-                            }`}
-                          >
-                            {tripDetails?.duration || "10 min"}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                </View>
-              )}
-
-              <TouchableOpacity
-                onPress={() =>
-                  router.push({
-                    pathname: "/book-ride",
-                    params: {
-                      mode: rideMode,
-                      vehicle: selectedVehicle,
-                      price: calculateFare(
-                        tripDetails?.distance,
-                        VEHICLES.find((v) => v.id === selectedVehicle)
-                          ?.multiplier || 1
-                      ),
-                    },
-                  })
-                }
-                className={`mt-6 rounded-2xl py-4 items-center shadow-lg active:opacity-90 ${
-                  rideMode === "saver" ? "bg-green-600" : "bg-black"
-                }`}
-              >
-                <Text className="text-white text-lg font-bold font-sans">
-                  {destination
-                    ? `Book ${
-                        VEHICLES.find((v) => v.id === selectedVehicle)?.name ||
-                        "Ride"
-                      }`
-                    : "Search Rides"}
-                </Text>
-              </TouchableOpacity>
-
-              <View className="h-48" />
-            </ScrollView>
-          </View>
-        </Animated.View>
-      </GestureDetector>
-
-      {isSelecting && (
-        <Animated.View
-          entering={FadeInDown.springify()}
-          exiting={FadeOutUp}
-          className="absolute top-0 left-0 right-0 bottom-0 pointer-events-box-none"
-          pointerEvents="box-none"
-        >
-          <View className="bg-white/95 px-5 pt-4 pb-2 shadow-sm rounded-b-2xl">
-            <View className="flex-row items-center bg-gray-100 p-3 rounded-xl mb-2 border border-gray-200">
-              <TouchableOpacity onPress={() => setIsSelecting(false)}>
-                <Ionicons name="arrow-back" size={24} color="black" />
-              </TouchableOpacity>
-              <TextInput
-                autoFocus
-                placeholder="Where to?"
-                className="flex-1 ml-3 text-lg font-sans"
-                value={searchText}
-                onChangeText={handleSearch}
-              />
-              {searchText.length > 0 && (
-                <TouchableOpacity onPress={() => handleSearch("")}>
-                  <Ionicons name="close-circle" size={20} color="gray" />
-                </TouchableOpacity>
-              )}
-            </View>
-            {searchResults.length > 0 && (
-              <View className="max-h-80 bg-white rounded-xl shadow-lg mt-2 overflow-hidden">
-                <FlatList
-                  data={searchResults}
-                  keyExtractor={(item) => item.place_id}
-                  showsVerticalScrollIndicator={false}
-                  keyboardShouldPersistTaps="handled"
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      className="py-4 px-4 border-b border-gray-100 flex-row items-center"
-                      onPress={() =>
-                        handleSelectPlace(
-                          item.place_id,
-                          item.structured_formatting.main_text,
-                          item.structured_formatting.secondary_text
-                        )
-                      }
-                    >
-                      <View className="bg-gray-100 p-3 rounded-full mr-3">
-                        <Ionicons name="location" size={20} color="black" />
+                        </View>
                       </View>
-                      <View className="flex-1">
-                        <Text className="font-bold text-black text-base">
-                          {item.structured_formatting.main_text}
-                        </Text>
-                        <Text
-                          className="text-gray-500 text-sm mt-1"
-                          numberOfLines={1}
-                        >
-                          {item.structured_formatting.secondary_text}
-                        </Text>
+                      <TouchableOpacity className="bg-white p-2 rounded-full shadow-sm">
+                        <Ionicons
+                          name="notifications-outline"
+                          size={24}
+                          color="black"
+                        />
+                      </TouchableOpacity>
+                    </View>
+                    <TouchableOpacity
+                      className="mt-6"
+                      onPress={() => setIsSelecting(true)}
+                      activeOpacity={0.9}
+                    >
+                      <View pointerEvents="none">
+                        <Input
+                          icon="search"
+                          placeholder="Enter destination"
+                          editable={false}
+                        />
                       </View>
                     </TouchableOpacity>
+                  </>
+                )}
+
+                <View className={destination ? "mt-2" : "mt-6"}>
+                  <RideTypeToggle mode={rideMode} setMode={setRideMode} />
+                </View>
+
+                <View
+                  className={`rounded-3xl p-5 shadow-sm border border-gray-100 transition-all ${
+                    rideMode === "saver"
+                      ? "bg-green-50 border-green-200"
+                      : "bg-white"
+                  }`}
+                >
+                  <View className="border-b border-gray-100 pb-4">
+                    <Text className="text-gray-400 text-xs font-sans mb-1">
+                      From
+                    </Text>
+                    <Text
+                      className="text-xl font-bold text-black"
+                      numberOfLines={1}
+                    >
+                      {currentCity}
+                    </Text>
+                    <Text
+                      className="text-gray-500 text-sm font-sans"
+                      numberOfLines={1}
+                    >
+                      {userLocation ? "Your Location" : "Waiting for GPS..."}
+                    </Text>
+                  </View>
+
+                  {/* DISTANCE BADGE */}
+                  {tripDetails && destination && (
+                    <View className="absolute left-[45%] top-[52%] bg-white px-2 py-1 rounded-full border border-gray-200 z-20 shadow-sm">
+                      <Text className="text-xs font-bold text-gray-500">
+                        {tripDetails.distance}
+                      </Text>
+                    </View>
                   )}
+
+                  <TouchableOpacity className="absolute right-8 top-[42%] bg-white p-2 rounded-full shadow-md z-10 border border-gray-50">
+                    <Ionicons name="swap-vertical" size={20} color="#171ACB" />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => setIsSelecting(true)}
+                    className="pt-4"
+                  >
+                    <Text className="text-gray-400 text-xs font-sans mb-1">
+                      To
+                    </Text>
+                    <Text
+                      className={`text-xl font-bold ${
+                        destination ? "text-black" : "text-gray-400"
+                      }`}
+                      numberOfLines={1}
+                    >
+                      {destination ? destination.name : "Select destination"}
+                    </Text>
+                    <Text
+                      className="text-gray-500 text-sm font-sans"
+                      numberOfLines={1}
+                    >
+                      {destination ? destination.desc : "Tap to search"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* HORIZONTAL VEHICLE LIST */}
+                {destination && (
+                  <View className="mt-6">
+                    <Text className="text-gray-500 font-bold mb-3 font-sans">
+                      Select Vehicle
+                    </Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      className="flex-row"
+                      contentContainerStyle={{ paddingRight: 20 }}
+                    >
+                      {VEHICLES.map((vehicle) => {
+                        const fare = calculateFare(
+                          tripDetails?.distance,
+                          vehicle.multiplier
+                        );
+                        const isSelected = selectedVehicle === vehicle.id;
+
+                        return (
+                          <TouchableOpacity
+                            key={vehicle.id}
+                            onPress={() => setSelectedVehicle(vehicle.id)}
+                            className="mr-4 w-32 p-4 rounded-3xl border flex-col items-center justify-center border-gray-100 bg-white"
+                            style={[
+                              isSelected
+                                ? {
+                                    backgroundColor: "black",
+                                    borderColor: "black",
+                                  }
+                                : {},
+                            ]}
+                          >
+                            <View
+                              className={`p-3 rounded-full mb-2 ${
+                                isSelected ? "bg-gray-800" : "bg-gray-100"
+                              }`}
+                            >
+                              <Ionicons
+                                name={vehicle.image as any}
+                                size={28}
+                                color={isSelected ? "white" : "black"}
+                              />
+                            </View>
+                            <Text
+                              className={`text-base font-bold mb-1 ${
+                                isSelected ? "text-white" : "text-black"
+                              }`}
+                            >
+                              {vehicle.name}
+                            </Text>
+                            <Text
+                              className={`text-sm font-bold ${
+                                isSelected ? "text-green-400" : "text-black"
+                              }`}
+                            >
+                              {fare} AED
+                            </Text>
+                            <Text
+                              className={`text-xs mt-1 ${
+                                isSelected ? "text-gray-400" : "text-gray-400"
+                              }`}
+                            >
+                              {tripDetails?.duration || "10 min"}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  onPress={() =>
+                    router.push({
+                      pathname: "/book-ride",
+                      params: {
+                        mode: rideMode,
+                        vehicle: selectedVehicle,
+                        price: calculateFare(
+                          tripDetails?.distance,
+                          VEHICLES.find((v) => v.id === selectedVehicle)
+                            ?.multiplier || 1
+                        ),
+                      },
+                    })
+                  }
+                  className={`mt-6 rounded-2xl py-4 items-center shadow-lg active:opacity-90 ${
+                    rideMode === "saver" ? "bg-green-600" : "bg-black"
+                  }`}
+                >
+                  <Text className="text-white text-lg font-bold font-sans">
+                    {destination
+                      ? `Book ${
+                          VEHICLES.find((v) => v.id === selectedVehicle)
+                            ?.name || "Ride"
+                        }`
+                      : "Search Rides"}
+                  </Text>
+                </TouchableOpacity>
+
+                <View className="h-48" />
+              </ScrollView>
+            </View>
+          </Animated.View>
+        </GestureDetector>
+
+        {isSelecting && (
+          <Animated.View
+            entering={FadeInDown.springify()}
+            exiting={FadeOutUp}
+            className="absolute top-0 left-0 right-0 bottom-0 pointer-events-box-none"
+            pointerEvents="box-none"
+          >
+            <View className="bg-white/95 px-5 pt-4 pb-2 shadow-sm rounded-b-2xl">
+              <View className="flex-row items-center bg-gray-100 p-3 rounded-xl mb-2 border border-gray-200">
+                <TouchableOpacity onPress={() => setIsSelecting(false)}>
+                  <Ionicons name="arrow-back" size={24} color="black" />
+                </TouchableOpacity>
+                <TextInput
+                  autoFocus
+                  placeholder="Where to?"
+                  className="flex-1 ml-3 text-lg font-sans"
+                  value={searchText}
+                  onChangeText={handleSearch}
                 />
+                {searchText.length > 0 && (
+                  <TouchableOpacity onPress={() => handleSearch("")}>
+                    <Ionicons name="close-circle" size={20} color="gray" />
+                  </TouchableOpacity>
+                )}
               </View>
-            )}
-          </View>
-          {destination && (
-            <Animated.View
-              entering={SlideInDown.springify().damping(150)}
-              className="absolute bottom-10 left-5 right-5"
-            >
-              <TouchableOpacity
-                onPress={() => setIsSelecting(false)}
-                className="bg-primary py-4 rounded-2xl items-center shadow-lg"
+              {searchResults.length > 0 && (
+                <View className="max-h-80 bg-white rounded-xl shadow-lg mt-2 overflow-hidden">
+                  <FlatList
+                    data={searchResults}
+                    keyExtractor={(item) => item.place_id}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        className="py-4 px-4 border-b border-gray-100 flex-row items-center"
+                        onPress={() =>
+                          handleSelectPlace(
+                            item.place_id,
+                            item.structured_formatting.main_text,
+                            item.structured_formatting.secondary_text
+                          )
+                        }
+                      >
+                        <View className="bg-gray-100 p-3 rounded-full mr-3">
+                          <Ionicons name="location" size={20} color="black" />
+                        </View>
+                        <View className="flex-1">
+                          <Text className="font-bold text-black text-base">
+                            {item.structured_formatting.main_text}
+                          </Text>
+                          <Text
+                            className="text-gray-500 text-sm mt-1"
+                            numberOfLines={1}
+                          >
+                            {item.structured_formatting.secondary_text}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    )}
+                  />
+                </View>
+              )}
+            </View>
+            {destination && (
+              <Animated.View
+                entering={SlideInDown.springify().damping(150)}
+                className="absolute bottom-10 left-5 right-5"
               >
-                <Text className="text-white font-bold text-lg">
-                  Confirm Location
-                </Text>
-              </TouchableOpacity>
-            </Animated.View>
-          )}
-        </Animated.View>
-      )}
-    </GestureHandlerRootView>
+                <TouchableOpacity
+                  onPress={() => setIsSelecting(false)}
+                  className="bg-primary py-4 rounded-2xl items-center shadow-lg"
+                >
+                  <Text className="text-white font-bold text-lg">
+                    Confirm Location
+                  </Text>
+                </TouchableOpacity>
+              </Animated.View>
+            )}
+          </Animated.View>
+        )}
+      </GestureHandlerRootView>
+    </SafeAreaView>
   );
 }
