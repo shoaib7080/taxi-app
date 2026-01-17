@@ -11,42 +11,32 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation } from "@apollo/client/react";
-
-// Custom Components
 import { Input } from "../../components/Input";
 import { Button } from "../../components/Button";
-
-// Logic & API
 import { useAuth } from "../../context/AuthContext";
-import { LOGIN_MUTATION } from "../../graphql/mutations";
+import { SIGNUP_MUTATION } from "../../graphql/mutations";
 
-export default function Login() {
+export default function Signup() {
   const router = useRouter();
-  const { login: setAuthUser } = useAuth(); // Rename to avoid conflict with mutation function
-
-  // Form State
+  const { login: setAuthUser } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [fullName, setFullName] = useState("");
 
-  // GraphQL Hook
-  const [loginApi, { loading }] = useMutation(LOGIN_MUTATION, {
+  const [signupApi, { loading }] = useMutation(SIGNUP_MUTATION, {
     onCompleted: (data) => {
-      // 1. Success! Save token and redirect
-      setAuthUser(data.login.token, data.login.user);
+      setAuthUser(data.signup.token, data.signup.user);
     },
     onError: (error) => {
-      // 2. Fail! Show error
-      Alert.alert("Login Failed", error.message);
+      Alert.alert("Signup Failed", error.message);
     },
   });
 
-  const handleLogin = () => {
-    if (!email || !password)
+  const handleSignup = () => {
+    if (!email || !password || !fullName)
       return Alert.alert("Error", "Please fill in all fields");
-
-    loginApi({
-      variables: { email, password },
-    });
+    signupApi({ variables: { email, password, fullName } });
   };
 
   return (
@@ -55,21 +45,31 @@ export default function Login() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1 px-6 justify-center"
       >
-        {/* HEADER */}
+        <TouchableOpacity
+          onPress={() => router.back()}
+          className="absolute top-14 left-6 z-10"
+        >
+          <Ionicons name="arrow-back" size={24} color="black" />
+        </TouchableOpacity>
+
         <View className="items-center mb-10">
-          <View className="w-20 h-20 bg-black rounded-3xl items-center justify-center mb-4">
-            <Ionicons name="car-sport" size={40} color="white" />
-          </View>
           <Text className="text-3xl font-bold font-sans text-black">
-            Welcome Back
+            Create Account
           </Text>
           <Text className="text-gray-500 mt-2 font-sans">
-            Enter your details to continue
+            Join us to start riding
           </Text>
         </View>
 
-        {/* INPUTS */}
         <View className="space-y-4 mb-8">
+          <Input
+            icon="mail-outline"
+            placeholder="Full name"
+            autoCapitalize="none"
+            keyboardType="default"
+            value={fullName}
+            onChangeText={setFullName}
+          />
           <Input
             icon="mail-outline"
             placeholder="Email Address"
@@ -87,22 +87,10 @@ export default function Login() {
           />
         </View>
 
-        {/* BUTTON */}
         <Button
-          title={loading ? "Logging in..." : "Log In"}
-          onPress={handleLogin}
-          // You might need to update Button.tsx to accept 'disabled' prop
+          title={loading ? "Creating..." : "Sign Up"}
+          onPress={handleSignup}
         />
-
-        {/* SIGN UP LINK */}
-        <View className="flex-row justify-center mt-6">
-          <Text className="text-gray-500 font-sans">
-            Don't have an account?{" "}
-          </Text>
-          <TouchableOpacity onPress={() => router.push("/(auth)/signup")}>
-            <Text className="text-black font-bold font-sans">Sign Up</Text>
-          </TouchableOpacity>
-        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

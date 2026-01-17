@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import * as Location from "expo-location";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { LinearGradient } from "expo-linear-gradient";
 
 import { BookingSheet } from "@/components/home/BookingSheet";
 import { saveLocation, getLastLocation } from "../../services/storage";
@@ -53,25 +54,30 @@ export default function Home() {
   }, []);
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <GestureHandlerRootView className="flex-1">
-        {/* No Map Here anymore */}
-
-        {/* Booking Sheet usage as the primary UI */}
-        <BookingSheet
-          isSelecting={isSelecting}
-          setIsSelecting={setIsSelecting}
-          destination={null} // No destination in Home
-          rideMode={rideMode}
-          setRideMode={setRideMode}
-          userLocation={userLocation}
-          currentCity={currentCity}
-          tripDetails={null}
-          selectedVehicle={selectedVehicle}
-          setSelectedVehicle={setSelectedVehicle}
-          onSearchPress={() => router.push("/map-search")}
-        />
-      </GestureHandlerRootView>
-    </SafeAreaView>
+    <LinearGradient
+      colors={["#b4d3fdff", "#ffffff"]} // blue-100 to white
+      className="flex-1"
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 0.5 }} // Gradient fades out halfway or earlier
+    >
+      <SafeAreaView className="flex-1 bg-transparent">
+        <GestureHandlerRootView className="flex-1">
+          {/* Booking Sheet usage as the primary UI */}
+          <BookingSheet
+            isSelecting={isSelecting}
+            setIsSelecting={setIsSelecting}
+            destination={null} // No destination in Home
+            rideMode={rideMode}
+            setRideMode={setRideMode}
+            userLocation={userLocation}
+            currentCity={currentCity}
+            tripDetails={null}
+            selectedVehicle={selectedVehicle}
+            setSelectedVehicle={setSelectedVehicle}
+            onSearchPress={() => router.push("/map-search")}
+          />
+        </GestureHandlerRootView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }

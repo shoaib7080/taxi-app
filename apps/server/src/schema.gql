@@ -1,0 +1,84 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type AuthResponse {
+  token: String!
+  user: User!
+}
+
+input CreateRideInput {
+  destLat: Float!
+  destLng: Float!
+  originLat: Float!
+  originLng: Float!
+  price: Float!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type Mutation {
+  bookInstantRide(createRideInput: CreateRideInput!): Ride!
+  bookSmartSaverRide(offerId: String!): Ride!
+  createUser(fullName: String!, phone: String!): User!
+  login(email: String!, password: String!): AuthResponse!
+  signup(email: String!, fullName: String!, password: String!): AuthResponse!
+  startRide(driverId: String!, otp: String!, rideId: String!): RideOffer!
+}
+
+type Query {
+  findSmartSaverRides(destLat: Float!, destLng: Float!, pickupLat: Float!, pickupLng: Float!): [RideOffer!]!
+  getUsers: [User!]!
+}
+
+type Ride {
+  createdAt: DateTime!
+  destLat: Float!
+  destLng: Float!
+  generatedOffer: RideOffer
+  id: ID!
+  originLat: Float!
+  originLng: Float!
+  price: Float!
+  status: RideStatus!
+  user: User!
+}
+
+type RideOffer {
+  availableTime: DateTime!
+  destLat: Float!
+  destLng: Float!
+  id: ID!
+  originLat: Float!
+  originLng: Float!
+  price: Float!
+  status: RideOfferStatus!
+}
+
+enum RideOfferStatus {
+  AVAILABLE
+  BOOKED
+  EXPIRED
+}
+
+enum RideStatus {
+  ACCEPTED
+  CANCELLED
+  COMPLETED
+  CONFIRMED
+  SEARCHING
+}
+
+type User {
+  createdAt: DateTime!
+  email: String!
+  fullName: String!
+  googleId: String
+  id: ID!
+  isPhoneVerified: Boolean!
+  phone: String
+  rides: [Ride!]
+}

@@ -4,6 +4,9 @@ import {
   Outfit_700Bold,
 } from "@expo-google-fonts/outfit";
 import { Stack } from "expo-router";
+import { ApolloProvider } from "@apollo/client/react";
+import { AuthProvider } from "../context/AuthContext";
+import { client } from "../lib/apollo";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import "react-native-reanimated";
@@ -29,12 +32,14 @@ export default function RootLayout() {
   }
 
   return (
-    <Stack>
-      {/* We hide the header because we will build custom headers */}
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="book-ride" options={{ headerShown: false }} />
-      <Stack.Screen name="driver-details" options={{ headerShown: false }} />
-      <Stack.Screen name="+not-found" />
-    </Stack>
+    <ApolloProvider client={client}>
+      <AuthProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="book-ride" />
+        </Stack>
+      </AuthProvider>
+    </ApolloProvider>
   );
 }

@@ -13,6 +13,10 @@ import Animated, {
   useSharedValue,
   withSpring,
   withTiming,
+  withRepeat,
+  Easing,
+  cancelAnimation,
+  runOnJS,
 } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { RideTypeToggle } from "../RideTypeToggle";
@@ -134,6 +138,52 @@ export const BookingSheet = ({
     const rate = isSaver ? 2.5 : 4.0;
     let fare = Math.round(baseFare + distanceVal * rate * vehicleMultiplier);
     return fare > 0 ? fare : 15;
+  };
+
+  const [isSearching, setIsSearching] = React.useState(false);
+  const progress = useSharedValue(0);
+
+  // Reset searching if mode changes or destination changes
+  useEffect(() => {
+    setIsSearching(false);
+  }, [rideMode, destination]);
+
+  useEffect(() => {
+    if (isSearching) {
+      progress.value = withTiming(
+        1,
+        { duration: 30000, easing: Easing.linear },
+        (finished) => {
+          if (finished) {
+            runOnJS(setIsSearching)(false);
+          }
+        }
+      );
+    } else {
+      cancelAnimation(progress);
+      progress.value = 0;
+    }
+  }, [isSearching]);
+
+  const progressStyle = useAnimatedStyle(() => ({
+    width: `${progress.value * 100}%`,
+  }));
+
+  const handleBookPress = () => {
+    if (rideMode === "saver") {
+      router.push({
+        pathname: "/smart-rides",
+        params: { city: currentCity },
+      });
+      return;
+    }
+
+    if (isSearching) {
+      setIsSearching(false); // Cancel
+    } else {
+      setIsSearching(true); // Start Searching
+      // In a real app, this would trigger an API call.
+    }
   };
 
   return (
@@ -268,7 +318,6 @@ export const BookingSheet = ({
                         style={[
                           isSelected
                             ? {
-                                backgroundColor: "black",
                                 borderColor: "black",
                               }
                             : {},
@@ -285,25 +334,11 @@ export const BookingSheet = ({
                             color={isSelected ? "white" : "black"}
                           />
                         </View>
-                        <Text
-                          className={`text-base font-bold mb-1 ${
-                            isSelected ? "text-white" : "text-black"
-                          }`}
-                        >
+                        <Text className={`text-base font-bold mb-1 `}>
                           {vehicle.name}
                         </Text>
-                        <Text
-                          className={`text-sm font-bold ${
-                            isSelected ? "text-green-400" : "text-black"
-                          }`}
-                        >
-                          {fare} AED
-                        </Text>
-                        <Text
-                          className={`text-xs mt-1 ${
-                            isSelected ? "text-gray-400" : "text-gray-400"
-                          }`}
-                        >
+                        <Text className={`text-sm font-bold `}>{fare} AED</Text>
+                        <Text className={`text-xs mt-1 `}>
                           {tripDetails?.duration || "10 min"}
                         </Text>
                       </TouchableOpacity>
@@ -314,26 +349,26 @@ export const BookingSheet = ({
             )}
 
             <TouchableOpacity
-              onPress={() =>
-                router.push({
-                  pathname: "/book-ride",
-                  params: {
-                    mode: rideMode,
-                    vehicle: selectedVehicle,
-                    price: calculateFare(
-                      tripDetails?.distance,
-                      VEHICLES.find((v) => v.id === selectedVehicle)
-                        ?.multiplier || 1
-                    ),
-                  },
-                })
-              }
-              className={`mt-6 rounded-2xl py-4 items-center shadow-lg active:opacity-90 ${
-                rideMode === "saver" ? "bg-green-600" : "bg-black"
+              onPress={handleBookPress}
+              activeOpacity={0.9}
+              className={`mt-6 rounded-2xl h-16 items-center justify-center shadow-lg overflow-hidden relative ${
+                rideMode === "saver" ? " bg-green-700" : " bg-black"
               }`}
             >
-              <Text className="text-white text-lg font-bold font-sans">
-                {destination
+              {/* Progress Bar Background for Searching State */}
+              {rideMode === "instant" && isSearching && (
+                <Animated.View
+                  style={[progressStyle]}
+                  className="absolute top-0 bottom-0 left-0 bg-gray-700 opacity-80"
+                />
+              )}
+
+              <Text className="text-white text-lg font-bold font-sans z-10">
+                {rideMode === "saver"
+                  ? "Search Smart Rides"
+                  : isSearching
+                  ? "Searching... (Tap to Cancel)"
+                  : destination
                   ? `Book ${
                       VEHICLES.find((v) => v.id === selectedVehicle)?.name ||
                       "Ride"
