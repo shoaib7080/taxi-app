@@ -4,9 +4,11 @@ import {
   Column,
   CreateDateColumn,
   OneToMany,
+  OneToOne,
 } from 'typeorm';
 import { ObjectType, Field, ID } from '@nestjs/graphql';
 import { Ride } from '../../rides/entities/ride.entity';
+import { DriverDetails } from './driver-details.entity';
 
 @Entity() // <--- Database: "This is a table named 'user'"
 @ObjectType() // <--- GraphQL: "This is an object users can query"
@@ -38,6 +40,17 @@ export class User {
   @Column({ default: false })
   @Field()
   isPhoneVerified: boolean;
+
+  @Column({
+    type: 'simple-array',
+    default: 'RIDER',
+  })
+  @Field(() => [String])
+  roles: string[];
+
+  @OneToOne(() => DriverDetails, (details) => details.user, { nullable: true })
+  @Field(() => DriverDetails, { nullable: true })
+  driverDetails: DriverDetails;
 
   @OneToMany(() => Ride, (ride) => ride.user)
   @Field(() => [Ride], { nullable: true })

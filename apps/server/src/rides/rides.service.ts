@@ -8,6 +8,8 @@ import { Repository } from 'typeorm';
 import { Ride, RideStatus } from './entities/ride.entity';
 import { RideOffer, RideOfferStatus } from './entities/ride-offer.entity';
 import { User } from '../users/entities/user.entity';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { LessThan } from 'typeorm';
 
 @Injectable()
 export class RidesService {
@@ -23,8 +25,6 @@ export class RidesService {
     price: number,
   ): Promise<Ride> {
     // 1. Create the Main Ride (Dubai -> Abu Dhabi)
-    const rideOtp = Math.floor(1000 + Math.random() * 9000).toString();
-
     const ride = this.ridesRepo.create({
       user,
       originLat: origin.lat,
@@ -33,13 +33,51 @@ export class RidesService {
       destLng: dest.lng,
       price: price,
       status: RideStatus.SEARCHING,
-      rideOtp: rideOtp,
     });
 
     const savedRide = await this.ridesRepo.save(ride);
 
     // 2. Trigger Ride Offer (For other users to accept)
     return savedRide;
+  }
+
+  // 2. ACCEPT (New: Driver accepts -> Generate OTP)
+  async acceptRide(rideId: string, driverId: string): Promise<Ride> {
+    const ride = await this.ridesRepo.findOne({ where: { id: rideId } });
+    if (!ride) throw new NotFoundException('Ride not found');
+
+    if (ride.status !== RideStatus.SEARCHING) {
+      throw new BadRequestException('Ride is not available');
+    }
+
+    // Generate OTP *only* when driver accepts
+    ride.rideOtp = Math.floor(1000 + Math.random() * 9000).toString();
+    ride.status = RideStatus.ACCEPTED;
+    ride.driverId = driverId; // Link the driver
+
+    return this.ridesRepo.save(ride);
+  }
+
+  // 3. AUTO-CANCEL (Runs every minute)
+  @Cron(CronExpression.EVERY_MINUTE)
+  async handleRideTimeouts() {
+    // Logic: Find rides that are SEARCHING and created > 1 minute ago
+    const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000);
+
+    const oldRides = await this.ridesRepo.find({
+      where: {
+        status: RideStatus.SEARCHING,
+        createdAt: LessThan(oneMinuteAgo),
+      },
+    });
+
+    if (oldRides.length > 0) {
+      console.log(`🗑️ Cancelling ${oldRides.length} expired rides...`);
+
+      // Option B (Better): Mark as CANCELLED (Soft Delete) so user knows what happened
+      oldRides.forEach((r) => (r.status = RideStatus.CANCELLED));
+      await this.ridesRepo.save(oldRides);
+    }
   }
 
   async startRide(rideId: string, otp: string, driverId: string) {
@@ -149,6 +187,10 @@ export class RidesService {
     });
 
     return this.ridesRepo.save(ride);
+  }
+
+  findOne(id: string) {
+    return this.ridesRepo.findOne({ where: { id } });
   }
 
   remove(id: number) {

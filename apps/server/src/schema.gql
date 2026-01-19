@@ -20,17 +20,38 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
+enum DriverApprovalStatus {
+  APPROVED
+  PENDING
+  REJECTED
+}
+
+type DriverDetails {
+  approvalStatus: DriverApprovalStatus!
+  id: ID!
+  isOnline: Boolean!
+  licenseNumber: String!
+  rating: Float!
+  user: User!
+  vehicleColor: String
+  vehiclePlate: String!
+  vehicleType: String!
+}
+
 type Mutation {
+  acceptRide(driverId: String!, rideId: String!): Ride!
   bookInstantRide(createRideInput: CreateRideInput!): Ride!
   bookSmartSaverRide(offerId: String!): Ride!
+  createDriver(email: String!, fullName: String!, password: String!): AuthResponse!
   createUser(fullName: String!, phone: String!): User!
-  login(email: String!, password: String!): AuthResponse!
+  login(appType: String!, email: String!, password: String!): AuthResponse!
   signup(email: String!, fullName: String!, password: String!): AuthResponse!
   startRide(driverId: String!, otp: String!, rideId: String!): RideOffer!
 }
 
 type Query {
   findSmartSaverRides(destLat: Float!, destLng: Float!, pickupLat: Float!, pickupLng: Float!): [RideOffer!]!
+  getRide(id: String!): Ride!
   getUsers: [User!]!
 }
 
@@ -38,11 +59,13 @@ type Ride {
   createdAt: DateTime!
   destLat: Float!
   destLng: Float!
+  driver: User
   generatedOffer: RideOffer
   id: ID!
   originLat: Float!
   originLng: Float!
   price: Float!
+  rideOtp: String
   status: RideStatus!
   user: User!
 }
@@ -74,6 +97,7 @@ enum RideStatus {
 
 type User {
   createdAt: DateTime!
+  driverDetails: DriverDetails
   email: String!
   fullName: String!
   googleId: String
@@ -81,4 +105,5 @@ type User {
   isPhoneVerified: Boolean!
   phone: String
   rides: [Ride!]
+  roles: [String!]!
 }

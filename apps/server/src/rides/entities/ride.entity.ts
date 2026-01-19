@@ -72,7 +72,16 @@ export class Ride {
   status: RideStatus;
 
   @Column({ nullable: true })
+  @Field({ nullable: true })
   rideOtp: string;
+
+  @Column({ nullable: true })
+  driverId: string;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'driverId' })
+  @Field(() => User, { nullable: true })
+  driver: User;
 
   @CreateDateColumn()
   @Field()

@@ -27,8 +27,23 @@ export class AuthResolver {
   }
 
   @Mutation(() => AuthResponse)
-  async login(@Args('email') email: string, @Args('password') pass: string) {
-    const user = await this.authService.validateUser(email, pass);
+  async createDriver(
+    @Args('email') email: string,
+    @Args('password') pass: string,
+    @Args('fullName') fullName: string,
+  ) {
+    const user = await this.authService.registerDriver(email, pass, fullName);
+    // Auto-login as DRIVER
+    return this.authService.login(user);
+  }
+
+  @Mutation(() => AuthResponse)
+  async login(
+    @Args('email') email: string,
+    @Args('password') pass: string,
+    @Args('appType') appType: string,
+  ) {
+    const user = await this.authService.validateUser(email, pass, appType);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }

@@ -1,36 +1,32 @@
+import { Stack } from "expo-router";
+import { ApolloProvider } from "@apollo/client/react";
+import { AuthProvider, useAuth } from "../context/AuthContext";
+import { client } from "../lib/apollo";
 import {
   useFonts,
   Outfit_400Regular,
   Outfit_700Bold,
 } from "@expo-google-fonts/outfit";
-import { Stack } from "expo-router";
-import { ApolloProvider } from "@apollo/client/react";
-import { AuthProvider, useAuth } from "../context/AuthContext";
-import { client } from "../lib/apollo";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import "react-native-reanimated";
 import "../global.css";
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
-// 1. Create a child component that has access to Auth Context
-function RootNavigation() {
-  const { isLoading } = useAuth(); // <--- Now we can check if Auth is ready
+function DriverNavigation() {
+  const { isLoading } = useAuth();
   const [fontsLoaded] = useFonts({
     "Outfit-Regular": Outfit_400Regular,
     "Outfit-Bold": Outfit_700Bold,
   });
 
-  // 2. Only hide Splash Screen when BOTH are ready
   useEffect(() => {
     if (fontsLoaded && !isLoading) {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, isLoading]);
 
-  // 3. Keep showing Splash Screen (return null) until ready
   if (!fontsLoaded || isLoading) {
     return null;
   }
@@ -39,17 +35,15 @@ function RootNavigation() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="book-ride" />
     </Stack>
   );
 }
 
-// 4. The Main Layout just wraps the providers
 export default function RootLayout() {
   return (
     <ApolloProvider client={client}>
       <AuthProvider>
-        <RootNavigation />
+        <DriverNavigation />
       </AuthProvider>
     </ApolloProvider>
   );

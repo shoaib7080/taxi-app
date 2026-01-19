@@ -56,4 +56,18 @@ export class RidesResolver {
   ) {
     return this.ridesService.bookSaverRide(user, offerId);
   }
+
+  @Mutation(() => Ride)
+  async acceptRide(
+    @Args('rideId') rideId: string,
+    @Args('driverId') driverId: string, // Simulated for now
+  ) {
+    return this.ridesService.acceptRide(rideId, driverId);
+  }
+
+  // Also add a Query to fetch a Single Ride (for Polling)
+  @Query(() => Ride)
+  async getRide(@Args('id') id: string) {
+    return this.ridesService.findOne(id); // You need to add findOne to service
+  }
 }

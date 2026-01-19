@@ -7,9 +7,11 @@ import { join } from 'path';
 import { UsersModule } from './users/users.module';
 import { RidesModule } from './rides/rides.module';
 import { AuthModule } from './auth/auth.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     // 1. Load .env variables
     ConfigModule.forRoot({ isGlobal: true }),
 
