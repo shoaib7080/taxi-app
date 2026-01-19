@@ -3,6 +3,11 @@
 /apps/client/node_modules
 /apps/server/node_modules
 /build
+/node_modules
+package-lock.json
+package.json
+test-driver.js 
+
 
 # Logs
 logs

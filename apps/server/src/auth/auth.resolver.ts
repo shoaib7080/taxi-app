@@ -1,5 +1,6 @@
 import { Resolver, Mutation, Args, ObjectType, Field } from '@nestjs/graphql';
 import { AuthService } from './auth.service';
+import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
 import { UnauthorizedException } from '@nestjs/common';
 
@@ -14,7 +15,10 @@ class AuthResponse {
 
 @Resolver()
 export class AuthResolver {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private usersService: UsersService,
+  ) {}
 
   @Mutation(() => AuthResponse)
   async signup(
@@ -42,11 +46,17 @@ export class AuthResolver {
     @Args('email') email: string,
     @Args('password') pass: string,
     @Args('appType') appType: string,
+    @Args('pushToken', { nullable: true }) pushToken?: string,
   ) {
     const user = await this.authService.validateUser(email, pass, appType);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
+    // 2. SAVE THE TOKEN (If provided)
+    if (pushToken) {
+      await this.usersService.update(user.id, { pushToken });
+    }
+
     return this.authService.login(user);
   }
 }

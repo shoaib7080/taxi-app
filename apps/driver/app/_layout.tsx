@@ -11,6 +11,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import "react-native-reanimated";
 import "../global.css";
+import { SocketProvider } from "../context/SocketContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -43,7 +44,9 @@ export default function RootLayout() {
   return (
     <ApolloProvider client={client}>
       <AuthProvider>
-        <DriverNavigation />
+        <SocketProvider>
+          <DriverNavigation />
+        </SocketProvider>
       </AuthProvider>
     </ApolloProvider>
   );

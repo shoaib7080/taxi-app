@@ -8,14 +8,18 @@ import { Repository } from 'typeorm';
 import { Ride, RideStatus } from './entities/ride.entity';
 import { RideOffer, RideOfferStatus } from './entities/ride-offer.entity';
 import { User } from '../users/entities/user.entity';
+import { RidesGateway } from './rides.gateway';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { LessThan } from 'typeorm';
+import Expo from 'expo-server-sdk';
 
 @Injectable()
 export class RidesService {
+  private expo = new Expo();
   constructor(
     @InjectRepository(Ride) private ridesRepo: Repository<Ride>,
     @InjectRepository(RideOffer) private offersRepo: Repository<RideOffer>,
+    private ridesGateway: RidesGateway,
   ) {}
 
   async createInstantRide(
@@ -37,13 +41,24 @@ export class RidesService {
 
     const savedRide = await this.ridesRepo.save(ride);
 
+    // --- NEW: REAL-TIME BROADCAST ---
+    // For MVP, we assume a default city "Dubai" or you can reverse geocode the origin
+    const city = 'Dubai';
+
+    // Broadcast to available drivers in that city
+    this.ridesGateway.notifyNearbyDrivers(savedRide, city);
+    // --------------------------------
+
     // 2. Trigger Ride Offer (For other users to accept)
     return savedRide;
   }
 
   // 2. ACCEPT (New: Driver accepts -> Generate OTP)
   async acceptRide(rideId: string, driverId: string): Promise<Ride> {
-    const ride = await this.ridesRepo.findOne({ where: { id: rideId } });
+    const ride = await this.ridesRepo.findOne({
+      where: { id: rideId },
+      relations: ['user'],
+    });
     if (!ride) throw new NotFoundException('Ride not found');
 
     if (ride.status !== RideStatus.SEARCHING) {
@@ -55,7 +70,27 @@ export class RidesService {
     ride.status = RideStatus.ACCEPTED;
     ride.driverId = driverId; // Link the driver
 
-    return this.ridesRepo.save(ride);
+    const savedRide = await this.ridesRepo.save(ride);
+
+    if (ride.user.pushToken && Expo.isExpoPushToken(ride.user.pushToken)) {
+      console.log(`📲 Sending notification to ${ride.user.email}...`);
+
+      await this.expo.sendPushNotificationsAsync([
+        {
+          to: ride.user.pushToken,
+          sound: 'default',
+          title: 'Driver Found! 🚗',
+          body: `Your driver is on the way. OTP: ${ride.rideOtp}`,
+          data: { rideId: savedRide.id }, // Deep link data
+        },
+      ]);
+    }
+
+    // --- NEW: MARK DRIVER AS BUSY ---
+    this.ridesGateway.setDriverBusy(driverId, true);
+    // --------------------------------
+
+    return savedRide;
   }
 
   // 3. AUTO-CANCEL (Runs every minute)

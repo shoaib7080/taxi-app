@@ -14,9 +14,12 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
+      "bundleIdentifier": "com.shoaib.taxidriver",
       "supportsTablet": true
     },
     "android": {
+      "package": "com.shoaib.taxidriver",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -26,6 +29,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "5f7a6ae6-c1ad-4810-b756-cf310a33e706"
+      }
     }
   }
 }

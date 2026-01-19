@@ -44,7 +44,7 @@ type Mutation {
   bookSmartSaverRide(offerId: String!): Ride!
   createDriver(email: String!, fullName: String!, password: String!): AuthResponse!
   createUser(fullName: String!, phone: String!): User!
-  login(appType: String!, email: String!, password: String!): AuthResponse!
+  login(appType: String!, email: String!, password: String!, pushToken: String): AuthResponse!
   signup(email: String!, fullName: String!, password: String!): AuthResponse!
   startRide(driverId: String!, otp: String!, rideId: String!): RideOffer!
 }
@@ -104,6 +104,7 @@ type User {
   id: ID!
   isPhoneVerified: Boolean!
   phone: String
+  pushToken: String
   rides: [Ride!]
   roles: [String!]!
 }

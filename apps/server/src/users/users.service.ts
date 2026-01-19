@@ -27,4 +27,8 @@ export class UsersService {
   findOne(id: string): Promise<User | null> {
     return this.usersRepository.findOneBy({ id });
   }
+
+  update(id: string, userData: Partial<User>): Promise<User> {
+    return this.usersRepository.save({ id, ...userData });
+  }
 }

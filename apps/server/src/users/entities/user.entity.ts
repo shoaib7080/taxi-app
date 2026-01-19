@@ -56,6 +56,10 @@ export class User {
   @Field(() => [Ride], { nullable: true })
   rides: Ride[];
 
+  @Column({ nullable: true })
+  @Field({ nullable: true })
+  pushToken?: string;
+
   @CreateDateColumn()
   @Field()
   createdAt: Date;

@@ -13,14 +13,39 @@ import * as Location from "expo-location";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
+import { ACCEPT_RIDE_MUTATION } from "../../graphql/mutations";
+import { useAuth } from "../../context/AuthContext";
+import { useRouter } from "expo-router";
+import { useSocket } from "../../context/SocketContext";
+import { useMutation } from "@apollo/client/react";
 
 const { width, height } = Dimensions.get("window");
 
 export default function DriverHome() {
-  // --- STATE ---
-  const [isOnline, setIsOnline] = useState(false);
+  const router = useRouter();
+  const { user } = useAuth();
+  const {
+    isOnline,
+    connectDriver,
+    disconnectDriver,
+    incomingRide,
+    setIncomingRide,
+  } = useSocket();
   const [location, setLocation] = useState<Location.LocationObject | null>(
     null,
+  );
+
+  const [acceptRide, { loading: acceptLoading }] = useMutation(
+    ACCEPT_RIDE_MUTATION,
+    {
+      onCompleted: (data) => {
+        setIncomingRide(null); // Close Modal
+        Alert.alert("Success", "You have accepted the ride!");
+        // TODO: Navigate to Navigation Screen
+        // router.push({ pathname: "/navigation", params: { rideId: data.acceptRide.id } });
+      },
+      onError: (err) => Alert.alert("Error", err.message),
+    },
   );
 
   // --- 1. GET LOCATION ON LOAD ---
@@ -42,8 +67,32 @@ export default function DriverHome() {
   }, []);
 
   const toggleOnline = () => {
-    // TODO: Call Backend Mutation (Update Driver Status)
-    setIsOnline(!isOnline);
+    if (!location) return Alert.alert("Wait", "Getting GPS...");
+
+    if (isOnline) {
+      disconnectDriver();
+    } else {
+      // Hardcoded City "Dubai" for now.
+      connectDriver(
+        "Dubai",
+        location.coords.latitude,
+        location.coords.longitude,
+      );
+    }
+  };
+
+  const handleAccept = () => {
+    if (!incomingRide || !user) return;
+    acceptRide({
+      variables: {
+        rideId: incomingRide.id,
+        driverId: user.id,
+      },
+    });
+  };
+
+  const handleReject = () => {
+    setIncomingRide(null);
   };
 
   if (!location) {
@@ -93,20 +142,65 @@ export default function DriverHome() {
         </View>
       </SafeAreaView>
 
-      {/* 4. THE BIG BUTTON */}
-      <View className="absolute bottom-10 w-full px-6">
-        <TouchableOpacity
-          onPress={toggleOnline}
-          activeOpacity={0.8}
-          className={`w-full py-4 rounded-full items-center shadow-lg ${
-            isOnline ? "bg-red-500" : "bg-primary"
-          }`}
-        >
-          <Text className="text-white font-bold text-xl font-sans uppercase tracking-widest">
-            {isOnline ? "Go Offline" : "Go Online"}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {/* ONLINE BUTTON */}
+      {!incomingRide && (
+        <View className="absolute bottom-10 w-full px-6">
+          <TouchableOpacity
+            onPress={toggleOnline}
+            className={`w-full py-4 rounded-full items-center shadow-lg ${isOnline ? "bg-red-500" : "bg-primary"}`}
+          >
+            <Text className="text-white font-bold text-xl font-sans uppercase tracking-widest">
+              {isOnline ? "Go Offline" : "Go Online"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* --- INCOMING RIDE POPUP (THE MODAL) --- */}
+      {incomingRide && (
+        <View className="absolute bottom-0 w-full bg-white rounded-t-3xl shadow-2xl p-6 pb-10">
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className="text-2xl font-bold font-sans">
+              New Request! ⚡️
+            </Text>
+            <View className="bg-green-100 px-3 py-1 rounded-full">
+              <Text className="text-green-700 font-bold">
+                {incomingRide.price} AED
+              </Text>
+            </View>
+          </View>
+
+          <View className="flex-row items-center mb-6">
+            <View className="bg-gray-100 p-3 rounded-full mr-4">
+              <Ionicons name="location" size={24} color="black" />
+            </View>
+            <View>
+              <Text className="text-secondary text-xs">
+                Pickup is 2 mins away
+              </Text>
+              <Text className="font-bold text-lg">Downtown Dubai</Text>
+            </View>
+          </View>
+
+          <View className="flex-row gap-4">
+            <TouchableOpacity
+              onPress={handleReject}
+              className="flex-1 bg-gray-200 py-4 rounded-xl items-center"
+            >
+              <Text className="font-bold text-lg text-gray-600">Reject</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleAccept}
+              className="flex-1 bg-black py-4 rounded-xl items-center"
+            >
+              <Text className="font-bold text-lg text-white">
+                {acceptLoading ? "Accepting..." : "Accept Ride"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
