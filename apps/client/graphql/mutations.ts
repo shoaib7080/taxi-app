@@ -56,3 +56,12 @@ export const GET_RIDE_STATUS = gql`
     }
   }
 `;
+
+export const UPDATE_PUSH_TOKEN_MUTATION = gql`
+  mutation UpdatePushToken($token: String!) {
+    updatePushToken(token: $token) {
+      id
+      pushToken
+    }
+  }
+`;

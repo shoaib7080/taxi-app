@@ -14,7 +14,10 @@ import { useMutation } from "@apollo/client/react";
 import { Input } from "../../components/Input";
 import { Button } from "../../components/Button";
 import { useAuth } from "../../context/AuthContext";
-import { LOGIN_MUTATION } from "../../graphql/mutations";
+import {
+  LOGIN_MUTATION,
+  UPDATE_PUSH_TOKEN_MUTATION,
+} from "../../graphql/mutations";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 
@@ -68,11 +71,20 @@ export default function Login() {
     registerForPushNotificationsAsync().then((token) => setPushToken(token));
   }, []);
 
+  const [updatePushToken] = useMutation(UPDATE_PUSH_TOKEN_MUTATION);
+
   // GraphQL Hook
   const [loginApi, { loading }] = useMutation(LOGIN_MUTATION, {
     onCompleted: (data) => {
       // 1. Success! Save token and redirect
       setAuthUser(data.login.token, data.login.user);
+
+      // 2. Update Push Token
+      if (pushToken) {
+        updatePushToken({ variables: { token: pushToken } }).catch((err) =>
+          console.error("Error updating push token", err),
+        );
+      }
     },
     onError: (error) => {
       // 2. Fail! Show error

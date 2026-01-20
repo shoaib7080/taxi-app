@@ -31,4 +31,13 @@ export class UsersService {
   update(id: string, userData: Partial<User>): Promise<User> {
     return this.usersRepository.save({ id, ...userData });
   }
+
+  async updatePushToken(userId: string, token: string): Promise<User | null> {
+    const user = await this.findOne(userId);
+    if (user) {
+      user.pushToken = token;
+      return this.usersRepository.save(user);
+    }
+    return null;
+  }
 }

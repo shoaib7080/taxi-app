@@ -17,7 +17,12 @@ import { Input } from "../../components/Input";
 import { Button } from "../../components/Button";
 
 import { useAuth } from "../../context/AuthContext";
-import { DRIVER_LOGIN_MUTATION } from "../../graphql/mutations";
+import * as Notifications from "expo-notifications";
+import * as Device from "expo-device";
+import {
+  DRIVER_LOGIN_MUTATION,
+  UPDATE_PUSH_TOKEN_MUTATION,
+} from "../../graphql/mutations";
 
 export default function DriverLogin() {
   const router = useRouter();
@@ -25,13 +30,59 @@ export default function DriverLogin() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [pushToken, setPushToken] = useState<string | null>(null);
+
+  // --- PUSH NOTIFICATION SETUP ---
+  async function registerForPushNotificationsAsync() {
+    let token;
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync("default", {
+        name: "default",
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: "#FF231F7C",
+      });
+    }
+
+    if (Device.isDevice) {
+      const { status: existingStatus } =
+        await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== "granted") {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      if (finalStatus !== "granted") {
+        console.log("Failed to get push token for push notification!");
+        return;
+      }
+      token = (await Notifications.getExpoPushTokenAsync()).data;
+      console.log("📲 Driver Push Token:", token);
+    } else {
+      console.log("Must use physical device for Push Notifications");
+    }
+
+    return token;
+  }
+
+  React.useEffect(() => {
+    registerForPushNotificationsAsync().then((token) => setPushToken(token));
+  }, []);
+
+  const [updatePushToken] = useMutation(UPDATE_PUSH_TOKEN_MUTATION);
 
   const [loginApi, { loading }] = useMutation(DRIVER_LOGIN_MUTATION, {
     onCompleted: (data) => {
-      // 1. Backend has already verified this is a Driver.
-      // 2. Save token and redirect.
       console.log("Driver Login Success:", data.login.user);
       setAuthUser(data.login.token, data.login.user);
+
+      // Save token to backend
+      if (pushToken) {
+        updatePushToken({ variables: { token: pushToken } }).catch((err) =>
+          console.error("Failed to update push token", err),
+        );
+      }
+
       router.replace("/(tabs)");
     },
     onError: (error) => {

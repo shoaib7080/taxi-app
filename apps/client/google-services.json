@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "000000000000",
-    "project_id": "dummy-project",
-    "storage_bucket": "dummy-project.appspot.com"
+    "project_number": "957908424841",
+    "project_id": "uae-taxi-app",
+    "storage_bucket": "uae-taxi-app.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+        "mobilesdk_app_id": "1:957908424841:android:63f46ac64ff31f903ece58",
         "android_client_info": {
           "package_name": "com.shoaib.taxiclient"
         }
@@ -15,24 +15,31 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "dummy-api-key"
+          "current_key": "AIzaSyDe0JgnMsnGSDMQVXcqdE7kIlY3Zj9B-i8"
         }
       ],
       "services": {
-        "analytics_service": {
-          "status": 1
-        },
         "appinvite_service": {
-          "status": 1
-        },
-        "ads_service": {
-          "status": 1
-        },
-        "maps_service": {
-          "status": 1
-        },
-        "search_service": {
-          "status": 1
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:957908424841:android:fa4fd90a58afacc73ece58",
+        "android_client_info": {
+          "package_name": "com.shoaib.taxidriver"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDe0JgnMsnGSDMQVXcqdE7kIlY3Zj9B-i8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
         }
       }
     }

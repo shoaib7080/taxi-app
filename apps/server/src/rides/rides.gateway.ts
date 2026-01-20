@@ -10,12 +10,18 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 
+import Expo from 'expo-server-sdk';
+import { UsersService } from '../users/users.service';
+
 @WebSocketGateway({ cors: { origin: '*' } })
 export class RidesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
   private logger = new Logger('RidesGateway');
+  private expo = new Expo();
+
+  constructor(private usersService: UsersService) {}
 
   // Map to track driverId -> socketId (for quick lookups)
   private driverSocketMap = new Map<string, string>();
@@ -99,6 +105,8 @@ export class RidesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // Filter & Send
     let count = 0;
+    const notifiedDriverIds: string[] = [];
+
     for (const socketId of socketIds) {
       const socket = this.server.sockets.sockets.get(socketId);
 
@@ -118,11 +126,61 @@ export class RidesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (distance <= 5) {
         // 5km Radius
         socket.emit('job.new', ride);
+        notifiedDriverIds.push(socket.data.driverId);
         count++;
       }
     }
 
+    // --- SEND PUSH NOTIFICATIONS ---
+    // We notify drivers even if they are connected to socket (to ensure they see it if app is backgrounded)
+    // In a real app, you might check if they ack the socket event first.
+    this.sendPushToDrivers(notifiedDriverIds, ride);
+
     this.logger.log(`Notified ${count} drivers for Ride ${ride.id}`);
+  }
+
+  private async sendPushToDrivers(driverIds: string[], ride: any) {
+    if (driverIds.length === 0) return;
+
+    try {
+      // 1. Get Users to find Tokens
+      // Note: We need a method in UsersService to find multiple users, or we loop.
+      // For MVP, loop is fine, or one query.
+      const users = await Promise.all(
+        driverIds.map((id) => this.usersService.findOne(id)),
+      );
+
+      const tokens = users
+        .map((u) => u?.pushToken)
+        .filter((t) => t && Expo.isExpoPushToken(t)) as string[];
+
+      if (tokens.length === 0) return;
+
+      // 2. Send Notifications
+      const messages = tokens.map((token) => ({
+        to: token,
+        sound: 'default' as const,
+        title: 'New Ride Request! 🚕',
+        body: `New job in ${ride.originLat.toFixed(3)}, ${ride.originLng.toFixed(3)}`,
+        data: { rideId: ride.id, type: 'NEW_RIDE' },
+        priority: 'high' as const,
+        channelId: 'default',
+      }));
+
+      // Expo handles batching automatically if we pass array, but sendPushNotificationsAsync takes chunks.
+      // Simple usage:
+      let chunks = this.expo.chunkPushNotifications(messages);
+      for (let chunk of chunks) {
+        try {
+          await this.expo.sendPushNotificationsAsync(chunk);
+        } catch (error) {
+          this.logger.error('Error sending push chunk', error);
+        }
+      }
+      this.logger.log(`Sent Push to ${tokens.length} drivers`);
+    } catch (e) {
+      this.logger.error('Failed to send push notifications', e);
+    }
   }
 
   /**
